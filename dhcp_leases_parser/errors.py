@@ -1,4 +1,4 @@
-from color_printer import print_red, print_yellow
+from dhcp_leases_parser.color_printer import print_red, print_yellow
 
 
 class Error(Exception):

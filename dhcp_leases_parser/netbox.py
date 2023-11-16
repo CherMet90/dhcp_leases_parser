@@ -7,8 +7,8 @@ import traceback
 import pynetbox
 from colorama import init
 
-from errors import Error, NonCriticalError
-from log import logger
+from dhcp_leases_parser.errors import Error, NonCriticalError
+from dhcp_leases_parser.log import logger
 
 # Initialize Colorama
 init()

@@ -1,6 +1,7 @@
 from prettytable import PrettyTable
-from errors import Error, NonCriticalError
-from log import logger
+
+from dhcp_leases_parser.errors import Error, NonCriticalError
+from dhcp_leases_parser.log import logger
 
 def print_errors():
     # Merge the error messages into a single list

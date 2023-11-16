@@ -2,8 +2,8 @@ import os
 
 import paramiko
 
-from log import logger
-from errors import Error, NonCriticalError
+from dhcp_leases_parser.log import logger
+from dhcp_leases_parser.errors import Error, NonCriticalError
 
 def download_config(device):
     ip = device.primary_ip.address.split('/')[0]

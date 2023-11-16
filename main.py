@@ -5,11 +5,11 @@ from datetime import datetime
 from datetime import timedelta
 from dotenv import load_dotenv
 
-from log import logger
-from netbox import NetboxDevice
-from error_handling import print_errors
-from errors import Error, NonCriticalError
-from pfsense import download_config
+from dhcp_leases_parser.log import logger
+from dhcp_leases_parser.netbox import NetboxDevice
+from dhcp_leases_parser.error_handling import print_errors
+from dhcp_leases_parser.errors import Error, NonCriticalError
+from dhcp_leases_parser.pfsense import download_config
 
 
 class Lease:
@@ -28,10 +28,7 @@ class Lease:
         self.mac_address = mac_address
         self.vendor_class = vendor_class
         self.hostname = hostname
-        self.description = f'leased {self.age if self.age else "0"} days ago / 
-        {self.mac_address if self.mac_address else "unknown mac"} / 
-        {self.hostname if self.hostname else "unknown hostname"} / 
-        {self.vendor_class if self.vendor_class else "unknown vendor"}'
+        self.description = f'leased {self.age if self.age else "0"} days ago / {self.mac_address if self.mac_address else "unknown mac"} / {self.hostname if self.hostname else "unknown hostname"} / {self.vendor_class if self.vendor_class else "unknown vendor"}'
 
     @staticmethod
     def __calculate_lease_age(start_date):

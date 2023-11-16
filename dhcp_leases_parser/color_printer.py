@@ -1,5 +1,6 @@
 from colorama import Fore
-from log import logger
+
+from dhcp_leases_parser.log import logger
 
 
 # Пресеты колорамы
