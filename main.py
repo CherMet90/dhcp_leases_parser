@@ -1,15 +1,14 @@
-import os
-import sys
+import yaml
 
 from datetime import datetime
 from datetime import timedelta
 from dotenv import load_dotenv
 
-from dhcp_leases_parser.log import logger
-from dhcp_leases_parser.netbox import NetboxDevice
-from dhcp_leases_parser.error_handling import print_errors
-from dhcp_leases_parser.errors import Error, NonCriticalError
-from dhcp_leases_parser.pfsense import download_config
+from custom_modules.log import logger
+from custom_modules.netbox_connector import NetboxDevice
+from custom_modules.error_handling import print_errors
+from custom_modules.errors import Error, NonCriticalError
+from custom_modules.pfsense import download_config
 
 
 class Lease:
@@ -88,6 +87,12 @@ def process_leases(leases):
             continue
 
 
+# Загрузка данных из файла настроек
+with open('settings.yaml', 'r') as file:
+    settings_data = yaml.safe_load(file)
+router_settings = settings_data.get('router_settings', {})
+routers_to_skip = router_settings.get('skip_routers', [])
+
 # Загрузка переменных окружения из .env
 load_dotenv(dotenv_path='.env')
 NetboxDevice.create_connection()
@@ -95,6 +100,9 @@ NetboxDevice.get_roles()
 router_devices = NetboxDevice.get_vms_by_role(
     role=NetboxDevice.roles['Router'])
 for router in router_devices:
+    # Skip routers from settings
+    if router['name'] in routers_to_skip:
+        continue
     leases = parse_file_with_leases(router)
     # input(f'{len(leases)} leases found. Press Enter to process {router.name}...')   # for debug only
     process_leases(leases)

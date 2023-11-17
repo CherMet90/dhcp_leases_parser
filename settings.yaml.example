@@ -1,0 +1,4 @@
+router_settings:
+  skip_routers:
+    - router1
+    - router2
