@@ -2,3 +2,5 @@ router_settings:
   skip_routers:
     - router1
     - router2
+  kea_dhcp:
+    - router3
