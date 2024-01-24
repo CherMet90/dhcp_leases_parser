@@ -3,3 +3,4 @@ __pycache__/
 .env
 settings.yaml
 *.log
+mac_vendor_cache.json
