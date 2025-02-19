@@ -1,5 +1,5 @@
+import ipaddress
 import time
-import requests
 import yaml
 
 from datetime import datetime
@@ -13,6 +13,7 @@ from custom_modules.errors import Error, NonCriticalError
 from custom_modules.pfsense import download_config
 from custom_modules.keadhcp import KeaDHCP
 from custom_modules.mac_vendor_lookup import MacVendorLookup
+from custom_modules.windows_dhcp import WindowsDHCP
 
 
 class Lease:
@@ -111,6 +112,21 @@ def get_leases_by_kea_api():
     granted_leases = keadhcp.lease_get_all()
     static_leases = keadhcp.static_get_all()
     combined_list = granted_leases + static_leases
+    
+    # # Find IPs in both granted_leases and static_leases
+    # static_ips = {lease['ip-address'] for lease in static_leases}
+    # duplicates_with_hostnames = [
+    #     lease for lease in granted_leases
+    #     if lease['ip-address'] in static_ips and lease.get('hostname')
+    # ]
+    # # Save to a file with the format: ip;mac;hostname
+    # with open('duplicates.txt', 'w') as file:
+    #     for lease in duplicates_with_hostnames:
+    #         line = f"{lease['ip-address']};{lease['hw-address']};{lease['hostname']};\n"
+    #         file.write(line)
+    # # Log the action
+    # logger.debug(f'Saved {len(duplicates_with_hostnames)} duplicated leases with hostnames to duplicates.txt')
+    
     # Удаление дубликатов
     seen = set()
     leases = []
@@ -135,6 +151,7 @@ def get_leases_by_kea_api():
     return processed_leases
 
 def process_leases(leases):
+    NetboxDevice.create_connection()
     for lease in leases:
         try:
             NetboxDevice.create_ip_address(
@@ -160,23 +177,66 @@ def clear_leases():
         NetboxDevice.remove_ip_range(start_ip, end_ip)
         logger.info(f'{start_ip} - {end_ip} cleared')
     logger.debug(f'{len(pools)} pools found')
+
+def clear_windows_leases(dhcp_server, current_leases):
+    """Update leases in Netbox to 'dhcp' status for IPs that are no longer present in current leases."""
+    logger.info(f'Updating Windows DHCP leases for server {dhcp_server.server_name} to "dhcp" status...')
+
+    # Получаем множество текущих IP-адресов
+    current_ips = {lease.ip_address for lease in current_leases}
+    ips_to_update = []
     
+    for scope in dhcp_server.scopes:
+        start_ip = scope['StartRange']
+        end_ip = scope['EndRange']
+        ip_list = [str(ipaddress.IPv4Address(ip)) for ip in range(int(ipaddress.IPv4Address(start_ip)), int(ipaddress.IPv4Address(end_ip)) + 1)]
+        
+        for ip in ip_list:
+            # Проверяем, есть ли IP-адрес в текущих лизах
+            if ip not in current_ips:
+                # Если IP-адрес отсутствует в текущих лизах, добавляем его в список для обновления
+                ips_to_update.append(ip)
+
+    for ip in ips_to_update:
+        updated = NetboxDevice.update_ip_address(ip, status='dhcp')
+        if updated:
+            logger.info(f'Updated IP {ip} in Netbox to "dhcp" status')
+        else:
+            logger.warning(f'Failed to update IP {ip} in Netbox to "dhcp" status')
+
+    logger.info(f'Updated Windows DHCP leases for server {dhcp_server.server_name} to "dhcp" status')
+
+
 # Загрузка данных из файла настроек
 with open('settings.yaml', 'r') as file:
-    settings_data = yaml.safe_load(file)
+    settings_data = yaml.safe_load(file) or {}
+
 router_settings = settings_data.get('router_settings', {})
-routers_to_skip = router_settings.get('skip_routers', [])
-kea_dhcps = router_settings.get('kea_dhcp', [])
+routers_to_skip = router_settings.get('skip_routers', []) or []  # Убедимся, что это точно список
+kea_dhcps = router_settings.get('kea_dhcp', []) or []           # Убедимся, что это точно список
+windows_dhcps = router_settings.get('windows_dhcp', []) or []   # Убедимся, что это точно список
 
 # Загрузка переменных окружения из .env
 load_dotenv(dotenv_path='.env')
 # Загрузка кэша мак-адресов
 mac_vendor_lookup = MacVendorLookup()
+
 # Подключение к Netbox
 NetboxDevice.create_connection()
 NetboxDevice.get_roles()
 router_devices = NetboxDevice.get_vms_by_role(
     role=NetboxDevice.roles['Router'])
+
+for server in windows_dhcps:
+    try:
+        dhcp_server = WindowsDHCP(server)
+        leases = dhcp_server.get_leases(Lease, skip=False)
+        clear_windows_leases(dhcp_server, leases)
+        process_leases(leases)
+    except Exception as e:
+        logger.error(f'Error processing Windows DHCP server {server}: {e}')
+        continue
+
 for router in router_devices:
     # Skip routers from settings
     if router['name'] in routers_to_skip:
