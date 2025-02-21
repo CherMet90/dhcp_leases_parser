@@ -204,8 +204,6 @@ def clear_windows_leases(dhcp_server, current_leases):
         else:
             logger.warning(f'Failed to update IP {ip} in Netbox to "dhcp" status')
 
-    logger.info(f'Updated Windows DHCP leases for server {dhcp_server.server_name} to "dhcp" status')
-
 
 # Загрузка данных из файла настроек
 with open('settings.yaml', 'r') as file:
